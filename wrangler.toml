@@ -5,4 +5,10 @@ compatibility_date = "2024-09-11"
 [dev]
 port = 9080
 
+# D1 資料庫配置
+[[d1_databases]]
+binding = "DB"
+database_name = "data"
+database_id = "1a7b7c20-2b6f-41ab-bef6-e5defb9cea73"
+
 

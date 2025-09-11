@@ -65,6 +65,24 @@ async function parseRequestBody(request) {
     }
 }
 
+async function d1Query(env, sql, params = []) {
+    try {
+        return await env.DB.prepare(sql).bind(...params).all();
+    } catch (error) {
+        console.error('D1 查詢錯誤:', error);
+        throw error;
+    }
+}
+
+async function d1Execute(env, sql, params = []) {
+    try {
+        return await env.DB.prepare(sql).bind(...params).run();
+    } catch (error) {
+        console.error('D1 執行錯誤:', error);
+        throw error;
+    }
+}
+
 // 輔助函數：呼叫外部 API
 async function callExternalAPI(url, options = {}) {
     try {
@@ -209,6 +227,125 @@ export default {
                 return errorResponse('用戶 API 排隊處理失敗', 500);
             }
         }
+        
+        // D1 資料庫操作端點 - 查詢資料
+        if (path === '/api/db/query' && method === 'POST') {
+            try {
+                const body = await parseRequestBody(request);
+                console.log('D1 查詢請求:', { sql: body.sql, params: body.params });
+                
+                // 檢查 env.DB 是否存在
+                if (!env.DB) {
+                    console.error('D1 資料庫未配置');
+                    return errorResponse('D1 資料庫未配置', 500);
+                }
+                
+                const result = await d1Query(env, body.sql, body.params || []);
+                console.log('D1 查詢結果:', result);
+                
+                return jsonResponse({
+                    success: true,
+                    data: result.results || result,
+                    meta: result.meta || {},
+                    raw: result
+                });
+            } catch (error) {
+                console.error('D1 查詢錯誤:', error);
+                return errorResponse(`資料庫查詢失敗: ${error.message}`, 500);
+            }
+        }
+        
+        // D1 資料庫操作端點 - 執行 SQL
+        if (path === '/api/db/execute' && method === 'POST') {
+            try {
+                const body = await parseRequestBody(request);
+                const result = await d1Execute(env, body.sql, body.params || []);
+                return jsonResponse({
+                    success: true,
+                    data: result
+                });
+            } catch (error) {
+                console.error('D1 執行錯誤:', error);
+                return errorResponse('資料庫執行失敗', 500);
+            }
+        }
+        
+        // D1 資料庫操作端點 - 新增資料
+        if (path === '/api/db/insert' && method === 'POST') {
+            try {
+                const body = await parseRequestBody(request);
+                console.log('D1 新增資料請求:', body);
+                
+                if (!env.DB) {
+                    return errorResponse('D1 資料庫未配置', 500);
+                }
+                
+                if (!body.table || !body.data) {
+                    return errorResponse('缺少必要參數: table 和 data', 400);
+                }
+                
+                // 動態建立 INSERT SQL
+                const columns = Object.keys(body.data);
+                const placeholders = columns.map(() => '?').join(', ');
+                const values = columns.map(col => body.data[col]);
+                
+                const sql = `INSERT INTO ${body.table} (${columns.join(', ')}) VALUES (${placeholders})`;
+                console.log('執行 SQL:', sql, '參數:', values);
+                
+                const result = await d1Execute(env, sql, values);
+                
+                return jsonResponse({
+                    success: true,
+                    message: '資料新增成功',
+                    data: result,
+                    inserted_id: result.meta?.last_row_id
+                });
+            } catch (error) {
+                console.error('D1 新增資料錯誤:', error);
+                return errorResponse(`資料新增失敗: ${error.message}`, 500);
+            }
+        }
+        
+        // D1 資料庫操作端點 - 更新資料
+        if (path === '/api/db/update' && method === 'POST') {
+            try {
+                const body = await parseRequestBody(request);
+                console.log('D1 更新資料請求:', body);
+                
+                if (!env.DB) {
+                    return errorResponse('D1 資料庫未配置', 500);
+                }
+                
+                if (!body.table || !body.data || !body.where) {
+                    return errorResponse('缺少必要參數: table, data 和 where', 400);
+                }
+                
+                // 動態建立 UPDATE SQL
+                const setClause = Object.keys(body.data).map(col => `${col} = ?`).join(', ');
+                const whereClause = Object.keys(body.where).map(col => `${col} = ?`).join(' AND ');
+                
+                const values = [
+                    ...Object.values(body.data),
+                    ...Object.values(body.where)
+                ];
+                
+                const sql = `UPDATE ${body.table} SET ${setClause} WHERE ${whereClause}`;
+                console.log('執行 SQL:', sql, '參數:', values);
+                
+                const result = await d1Execute(env, sql, values);
+                
+                return jsonResponse({
+                    success: true,
+                    message: '資料更新成功',
+                    data: result,
+                    changes: result.meta?.changes
+                });
+            } catch (error) {
+                console.error('D1 更新資料錯誤:', error);
+                return errorResponse(`資料更新失敗: ${error.message}`, 500);
+            }
+        }
+        
         try {
             if (path === '/') {
                 return jsonResponse({
