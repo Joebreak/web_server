@@ -34,6 +34,11 @@ jobs:
       - name: Install Wrangler
         run: npm install -g wrangler@3.78.12
         
+      - name: Check environment variables
+        run: |
+          echo "API Token exists: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}"
+          echo "Account ID exists: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' }}"
+        
       - name: Deploy to Cloudflare Workers
         run: wrangler deploy
         env:
