@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "start": "wrangler dev"
+    "start": "wrangler dev",
+    "build": "wrangler deploy --dry-run",
+    "preview": "wrangler dev --local",
+    "test": "echo \"No tests specified\" && exit 0"
   },
   "keywords": [
     "cloudflare",
