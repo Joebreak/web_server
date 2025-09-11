@@ -1,0 +1,24 @@
+{
+  "name": "cloudflare-workers-api",
+  "version": "1.0.0",
+  "description": "A REST API built with Cloudflare Workers",
+  "main": "worker.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "start": "wrangler dev"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "api",
+    "rest",
+    "javascript"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240925.0",
+    "wrangler": "^3.78.12"
+  }
+}

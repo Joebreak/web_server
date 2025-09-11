@@ -1,0 +1,9 @@
+name = "web-server-api"
+main = "worker.js"
+compatibility_date = "2024-09-11"
+
+[env.production]
+name = "web-server-api-prod"
+
+[env.staging]
+name = "web-server-api-staging"
