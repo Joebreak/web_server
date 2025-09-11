@@ -1,96 +1,5 @@
 
-// 資料庫操作函數 - 使用 Cloudflare D1
-async function initDatabase(db) {
-  try {
-    // 創建用戶表
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        age INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    
-    // 創建索引
-    await db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)
-    `);
-    
-    return true;
-  } catch (error) {
-    console.error('資料庫初始化失敗:', error);
-    return false;
-  }
-}
-
-async function getAllUsers(db) {
-  try {
-    const result = await db.prepare('SELECT * FROM users ORDER BY created_at DESC').all();
-    return result.results || [];
-  } catch (error) {
-    console.error('獲取用戶資料失敗:', error);
-    return [];
-  }
-}
-
-async function getUserById(db, id) {
-  try {
-    const result = await db.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
-    return result;
-  } catch (error) {
-    console.error('獲取用戶資料失敗:', error);
-    return null;
-  }
-}
-
-async function createUser(db, userData) {
-  try {
-    const result = await db.prepare(`
-      INSERT INTO users (name, email, age) 
-      VALUES (?, ?, ?)
-    `).bind(userData.name, userData.email, userData.age).run();
-    
-    return {
-      id: result.meta.last_row_id,
-      ...userData,
-      created_at: new Date().toISOString()
-    };
-  } catch (error) {
-    console.error('創建用戶失敗:', error);
-    throw error;
-  }
-}
-
-async function updateUser(db, id, userData) {
-  try {
-    const result = await db.prepare(`
-      UPDATE users 
-      SET name = COALESCE(?, name), 
-          email = COALESCE(?, email), 
-          age = COALESCE(?, age),
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).bind(userData.name, userData.email, userData.age, id).run();
-    
-    return result.meta.changes > 0;
-  } catch (error) {
-    console.error('更新用戶失敗:', error);
-    throw error;
-  }
-}
-
-async function deleteUser(db, id) {
-  try {
-    const result = await db.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
-    return result.meta.changes > 0;
-  } catch (error) {
-    console.error('刪除用戶失敗:', error);
-    throw error;
-  }
-}
+// 資料庫功能已移除 - 目前只提供外部 API 代理功能
 
 // 輔助函數：解析 URL 路徑
 function parseUrl(url) {
@@ -207,8 +116,7 @@ export default {
             });
         }
         try {
-            // 初始化資料庫
-            await initDatabase(env.DB);
+            // 資料庫初始化已移除 (需要配置 D1)
 
             // 外部 API 代理端點
             if (path.startsWith('/api/external')) {
