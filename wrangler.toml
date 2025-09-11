@@ -1,3 +1,8 @@
 name = "web-server-api"
 main = "worker.js"
 compatibility_date = "2024-09-11"
+
+[dev]
+port = 9080
+
+

@@ -1,31 +1,36 @@
 
-// 資料庫功能已移除 - 目前只提供外部 API 代理功能
+// 匯入多隊列排隊管理器
+import { MultiQueueManager } from './queue-manager.js';
+
+// 全域多隊列排隊管理器
+const queueManager = new MultiQueueManager();
 
 // 輔助函數：解析 URL 路徑
 function parseUrl(url) {
-  const urlObj = new URL(url);
-  const path = urlObj.pathname;
-  const method = urlObj.method || 'GET';
-  return { path, method };
+    const urlObj = new URL(url);
+    const path = urlObj.pathname;
+    return { path };
 }
 
-// 輔助函數：解析路由參數
-function parseRoute(route, path) {
-    const routeParts = route.split('/');
+// 輔助函數：解析路徑參數
+function parsePathParams(pattern, path) {
+    const patternParts = pattern.split('/');
     const pathParts = path.split('/');
-
-    if (routeParts.length !== pathParts.length) return null;
-
+    
+    if (patternParts.length !== pathParts.length) {
+        return null;
+    }
+    
     const params = {};
-    for (let i = 0; i < routeParts.length; i++) {
-        if (routeParts[i].startsWith(':')) {
-            const paramName = routeParts[i].substring(1);
+    for (let i = 0; i < patternParts.length; i++) {
+        if (patternParts[i].startsWith('{') && patternParts[i].endsWith('}')) {
+            const paramName = patternParts[i].slice(1, -1); // 移除 { }
             params[paramName] = pathParts[i];
-        } else if (routeParts[i] !== pathParts[i]) {
-            return null;
+        } else if (patternParts[i] !== pathParts[i]) {
+            return null; // 路徑不匹配
         }
     }
-
+    
     return params;
 }
 
@@ -62,49 +67,56 @@ async function parseRequestBody(request) {
 
 // 輔助函數：呼叫外部 API
 async function callExternalAPI(url, options = {}) {
-  try {
-    const defaultOptions = {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Cloudflare-Worker-API/1.0',
-        'Accept': 'application/json',
-        ...options.headers
-      },
-      timeout: 10000 // 10 秒超時
-    };
+    try {
+        const defaultOptions = {
+            method: 'GET', // 預設為 GET
+            headers: {
+                'User-Agent': 'Cloudflare-Worker-API/1.0',
+                'Accept': 'application/json'
+            },
+            timeout: 10000 // 10 秒超時
+        };
+        // 合併選項，確保 method 和 body 都正確傳遞
+        const fetchOptions = { 
+            ...defaultOptions, 
+            ...options,
+            headers: {
+                ...defaultOptions.headers,
+                ...options.headers
+            }
+        };
+        const response = await fetch(url, fetchOptions);
 
-    const response = await fetch(url, { ...defaultOptions, ...options });
-    
-    if (!response.ok) {
-      throw new Error(`外部 API 錯誤: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+            throw new Error(`外部 API 錯誤: ${response.status} ${response.statusText}`);
+        }
+
+        const contentType = response.headers.get('content-type');
+        let data;
+
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            data = await response.text();
+        }
+
+        // 直接回傳原始資料，不包裝額外資訊
+        return data;
+    } catch (error) {
+        console.error('外部 API 呼叫失敗:', error);
+        return {
+            success: false,
+            error: error.message,
+            status: 500
+        };
     }
-
-    const contentType = response.headers.get('content-type');
-    let data;
-    
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json();
-    } else {
-      data = await response.text();
-    }
-
-    // 直接回傳原始資料，不包裝額外資訊
-    return data;
-  } catch (error) {
-    console.error('外部 API 呼叫失敗:', error);
-    return {
-      success: false,
-      error: error.message,
-      status: 500
-    };
-  }
 }
 
 export default {
     async fetch(request, env, ctx) {
-        const { path, method } = parseUrl(request.url);
+        const { path } = parseUrl(request.url);
+        const method = request.method;
 
-        // 處理 CORS 預檢請求
         if (method === 'OPTIONS') {
             return new Response(null, {
                 status: 200,
@@ -115,39 +127,97 @@ export default {
                 }
             });
         }
-        try {
-            // 資料庫初始化已移除 (需要配置 D1)
-
-            // 外部 API 代理端點
-            if (path.startsWith('/api/external')) {
-                if (path === '/api/external/weather' && method === 'GET') {
-                    const url = new URL(request.url);
-                    const recordId = url.searchParams.get('id') || '2';
-                    const authToken = url.searchParams.get('token') || 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzU2OTc1MzYzfQ.cZNU2QHetZR2Jps9o-035mAntpE6SmnsovxzQ0ob4Mc';
-                    const internalAPI = `http://192.168.0.213:20218/api/admin/voter/visitRecord/${recordId}`;
-
-                    const result = await callExternalAPI(internalAPI, {
-                        headers: {
-                            'Authorization': `Bearer ${authToken}`,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    // console.log(JSON.parse(json.data.description ?? "{}"));
-                    return jsonResponse(JSON.parse(result.data.description ?? "{}"));
+        if (path === '/api/user' && method === 'GET') {
+            const url = new URL(request.url);
+            const authToken = url.searchParams.get('token') || 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzU2OTc1MzYzfQ.cZNU2QHetZR2Jps9o-035mAntpE6SmnsovxzQ0ob4Mc';
+            const internalAPI = `https://voter.dev.box70000.com/api/admin/voter/visitRecord/2`;
+            try {
+               
+                const result = await callExternalAPI(internalAPI, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (result && result.data && result.data.description) {
+                    try {
+                        return jsonResponse(JSON.parse(result.data.description));
+                    } catch (parseError) {
+                        return jsonResponse({
+                            error: '資料解析失敗',
+                            raw: result.data.description,
+                            parseError: parseError.message
+                        });
+                    }
                 }
-            }
 
-            // 根路徑 - 簡潔歡迎頁面
+                return jsonResponse(result);
+            } catch (apiError) {
+                console.error('用戶 API 錯誤:', apiError);
+                return jsonResponse({
+                    error: '用戶 API 呼叫失敗',
+                    message: apiError.message
+                });
+            }
+        }
+        
+        // 用戶 API - 支援路徑參數 /api/user/{id}
+        const userParams = parsePathParams('/api/user/{id}', path);
+        if (userParams && method === 'POST') {
+            try {
+                return await queueManager.addToQueue('user-api', request, env, ctx, async (req, env, ctx, queueKey) => {
+                    // 解析請求 body
+                    const body = await parseRequestBody(req);
+                    
+                    // 從路徑參數獲取 id，從 body 或 query 參數獲取 token
+                    const url = new URL(req.url);
+                    const authToken = body.token || url.searchParams.get('token') || 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzU2OTc1MzYzfQ.cZNU2QHetZR2Jps9o-035mAntpE6SmnsovxzQ0ob4Mc';
+                    const internalAPI = `https://voter.dev.box70000.com/api/admin/voter/visitRecord/${userParams.id}`;
+                    
+                    try {
+                        const transformedBody = {
+                            "description": JSON.stringify(body)
+                        };
+                        
+                        const apiOptions = {
+                            method: 'PATCH',
+                            headers: {
+                                'Authorization': `Bearer ${authToken}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(transformedBody)
+                        };
+
+                        const result = await callExternalAPI(internalAPI, apiOptions);
+
+                        return jsonResponse(result);
+                    } catch (apiError) {
+                        console.error('用戶 API 錯誤:', apiError);
+                        return jsonResponse({
+                            error: '用戶 API 呼叫失敗',
+                            message: apiError.message
+                        });
+                    }
+                }, {
+                    maxConcurrent: 1,
+                    processingDelay: 1000,
+                    maxQueueSize: 50,
+                    timeout: 30000
+                });
+            } catch (error) {
+                console.error('用戶 API 排隊處理錯誤:', error);
+                return errorResponse('用戶 API 排隊處理失敗', 500);
+            }
+        }
+        try {
             if (path === '/') {
                 return jsonResponse({
                     message: '歡迎使用 Cloudflare Workers API',
                     version: '1.0.0',
-                    status: 'running',
+                    status: 'running'
                 });
             }
 
-
-            // 404 - 未找到路由
             return errorResponse('端點不存在', 404);
 
         } catch (error) {
