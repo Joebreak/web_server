@@ -222,28 +222,28 @@ export default {
                 // 解析查詢參數
                 const url = new URL(request.url);
                 const searchParams = url.searchParams;
-                
+
                 // 建立 WHERE 條件
                 let whereConditions = [];
                 let params = [];
                 let searchFields = [];
-                
+
                 // 只有當有查詢參數時才去取得欄位資訊
                 if (searchParams.size > 0) {
                     const db = new DatabaseManager(env);
                     let columnTypes = {};
-                    
+
                     try {
                         // 取得資料表結構
                         const schemaResult = await db.query(`PRAGMA table_info(${d1Params.db})`, []);
                         searchFields = schemaResult.results.map(column => column.name);
-                        
+
                         // 建立欄位類型對應表
                         columnTypes = {};
                         schemaResult.results.forEach(column => {
                             columnTypes[column.name] = column.type.toUpperCase();
                         });
-                        
+
                         console.log(`資料表 ${d1Params.db} 的欄位:`, searchFields);
                         console.log(`欄位類型:`, columnTypes);
                     } catch (error) {
@@ -252,19 +252,19 @@ export default {
                         searchFields = ['id'];
                         columnTypes = { id: 'INTEGER' };
                     }
-                    
+
                     for (const field of searchFields) {
                         const value = searchParams.get(field);
                         if (value !== null && value !== '') {
                             whereConditions.push(`${field} = ?`);
-                            
+
                             // 根據資料庫欄位類型決定是否轉為數值
                             const fieldType = columnTypes[field] || '';
-                            const isNumericField = fieldType.includes('INT') || 
-                                                  fieldType.includes('REAL') || 
-                                                  fieldType.includes('NUMERIC') ||
-                                                  fieldType.includes('DECIMAL');
-                            
+                            const isNumericField = fieldType.includes('INT') ||
+                                fieldType.includes('REAL') ||
+                                fieldType.includes('NUMERIC') ||
+                                fieldType.includes('DECIMAL');
+
                             console.log(`欄位 ${field} 類型: ${fieldType}, 是否為數值: ${isNumericField}`);
                             params.push(isNumericField ? parseFloat(value) : value);
                         }
@@ -274,11 +274,10 @@ export default {
                 if (whereConditions.length > 0) {
                     sql += ' WHERE ' + whereConditions.join(' AND ');
                 }
-                
+
                 const db = new DatabaseManager(env);
                 const result = await db.query(sql, params);
 
-                // 處理 list 欄位：將 JSON string 轉為陣列
                 const processedData = (result.results || result).map(item => {
                     const processedItem = { ...item };
                     if (processedItem.list && typeof processedItem.list === 'string') {
@@ -291,8 +290,6 @@ export default {
                     }
                     return processedItem;
                 });
-
-                // 取得欄位類型資訊（如果有的話）
                 let columnTypes = {};
                 if (searchParams.size > 0) {
                     try {
@@ -394,6 +391,41 @@ export default {
                 return errorResponse(`資料新增失敗: ${error.message}`, 500);
             }
         }
+        const d5Params = parsePathParams('/api/{db}/{id}', path);
+        if (d5Params && method === 'GET') {
+            try {
+                if (!env.DB) {
+                    console.error('D1 資料庫未配置');
+                    return errorResponse('D1 資料庫未配置', 500);
+                }
+
+                const db = new DatabaseManager(env);
+                const result = await db.query(`SELECT * FROM ${d5Params.db} WHERE id = ?`, [parseInt(d5Params.id)]);
+
+                if (!result.results || result.results.length === 0) {
+                    return errorResponse('找不到指定的資料', 404);
+                }
+
+                // 處理 list 欄位：將 JSON string 轉為陣列
+                const processedData = result.results.map(item => {
+                    const processedItem = { ...item };
+                    if (processedItem.list && typeof processedItem.list === 'string') {
+                        try {
+                            processedItem.list = JSON.parse(processedItem.list);
+                        } catch (e) {
+                            // 如果解析失敗，保持原樣
+                            console.warn('list 欄位 JSON 解析失敗:', e);
+                        }
+                    }
+                    return processedItem;
+                });
+
+                return jsonResponse(processedData[0]);
+            } catch (error) {
+                console.error('D1 查詢錯誤:', error);
+                return errorResponse(`資料查詢失敗: ${error.message}`, 500);
+            }
+        }
         if (path === '/api/db/query' && method === 'POST') {
             try {
                 const body = await parseRequestBody(request);
@@ -442,4 +474,4 @@ export default {
             return errorResponse('伺服器內部錯誤', 500);
         }
     }
-  };
+};
