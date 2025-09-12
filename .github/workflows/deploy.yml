@@ -1,8 +1,6 @@
 name: Deploy to Cloudflare Workers
 
 on:
-  schedule:
-    - cron: '0 21 * * *'
   workflow_dispatch:
 
 jobs:
