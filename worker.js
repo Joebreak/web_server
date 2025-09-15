@@ -203,8 +203,14 @@ export default {
                         try {
                             processedItem.list = JSON.parse(processedItem.list);
                         } catch (e) {
-                            // 如果解析失敗，保持原樣
                             console.warn('list 欄位 JSON 解析失敗:', e);
+                        }
+                    }
+                    if (processedItem.data && typeof processedItem.data === 'string') {
+                        try {
+                            processedItem.data = JSON.parse(processedItem.data);
+                        } catch (e) {
+                            console.warn('data 欄位 JSON 解析失敗:', e);
                         }
                     }
                     return processedItem;
@@ -220,7 +226,6 @@ export default {
                         console.warn('無法取得欄位類型資訊:', error);
                     }
                 }
-
                 return jsonResponse({
                     success: true,
                     data: processedData,
@@ -228,6 +233,37 @@ export default {
             } catch (error) {
                 console.error('D1 查詢錯誤:', error);
                 return errorResponse(`資料庫查詢失敗: ${error.message}`, 500);
+            }
+        }
+        const d4Params = parsePathParams('/api/{db}', path);
+        if (d4Params && method === 'POST') {
+            try {
+                if (!env.DB) {
+                    console.error('D1 資料庫未配置');
+                    return errorResponse('D1 資料庫未配置', 500);
+                }
+                const body = await parseRequestBody(request);
+                if (!body || Object.keys(body).length === 0) {
+                    return errorResponse('請提供要新增的資料', 400);
+                }
+                const processedBody = { ...body };
+                if (processedBody.list && Array.isArray(processedBody.list)) {
+                    processedBody.list = JSON.stringify(processedBody.list);
+                }
+                if (processedBody.data && typeof processedBody.data === 'object') {
+                    processedBody.data = JSON.stringify(processedBody.data);
+                }
+
+                const db = new DatabaseManager(env);
+                await db.insert(d4Params.db, processedBody);
+
+                return jsonResponse({
+                    success: true,
+                    message: '資料新增成功'
+                });
+            } catch (error) {
+                console.error('D1 新增錯誤:', error);
+                return errorResponse(`資料新增失敗: ${error.message}`, 500);
             }
         }
         const d2Params = parsePathParams('/api/{db}/{id}', path);
@@ -242,11 +278,12 @@ export default {
                 if (!body || Object.keys(body).length === 0) {
                     return errorResponse('請提供要更新的資料', 400);
                 }
-
-                // 處理 list 欄位：如果是陣列則轉為 JSON string
                 const processedBody = { ...body };
                 if (processedBody.list && Array.isArray(processedBody.list)) {
                     processedBody.list = JSON.stringify(processedBody.list);
+                }
+                if (processedBody.data && typeof processedBody.data === 'object') {
+                    processedBody.data = JSON.stringify(processedBody.data);
                 }
 
                 const db = new DatabaseManager(env);
@@ -280,36 +317,6 @@ export default {
                 return errorResponse(`資料刪除失敗: ${error.message}`, 500);
             }
         }
-        const d4Params = parsePathParams('/api/{db}', path);
-        if (d4Params && method === 'POST') {
-            try {
-                if (!env.DB) {
-                    console.error('D1 資料庫未配置');
-                    return errorResponse('D1 資料庫未配置', 500);
-                }
-                const body = await parseRequestBody(request);
-                if (!body || Object.keys(body).length === 0) {
-                    return errorResponse('請提供要新增的資料', 400);
-                }
-
-                // 處理 list 欄位：如果是陣列則轉為 JSON string
-                const processedBody = { ...body };
-                if (processedBody.list && Array.isArray(processedBody.list)) {
-                    processedBody.list = JSON.stringify(processedBody.list);
-                }
-
-                const db = new DatabaseManager(env);
-                await db.insert(d4Params.db, processedBody);
-
-                return jsonResponse({
-                    success: true,
-                    message: '資料新增成功'
-                });
-            } catch (error) {
-                console.error('D1 新增錯誤:', error);
-                return errorResponse(`資料新增失敗: ${error.message}`, 500);
-            }
-        }
         const d5Params = parsePathParams('/api/{db}/{id}', path);
         if (d5Params && method === 'GET') {
             try {
@@ -324,16 +331,20 @@ export default {
                 if (!result.results || result.results.length === 0) {
                     return errorResponse('找不到指定的資料', 404);
                 }
-
-                // 處理 list 欄位：將 JSON string 轉為陣列
                 const processedData = result.results.map(item => {
                     const processedItem = { ...item };
                     if (processedItem.list && typeof processedItem.list === 'string') {
                         try {
                             processedItem.list = JSON.parse(processedItem.list);
                         } catch (e) {
-                            // 如果解析失敗，保持原樣
                             console.warn('list 欄位 JSON 解析失敗:', e);
+                        }
+                    }
+                    if (processedItem.data && typeof processedItem.data === 'string') {
+                        try {
+                            processedItem.data = JSON.parse(processedItem.data);
+                        } catch (e) {
+                            console.warn('data 欄位 JSON 解析失敗:', e);
                         }
                     }
                     return processedItem;
@@ -343,6 +354,144 @@ export default {
             } catch (error) {
                 console.error('D1 查詢錯誤:', error);
                 return errorResponse(`資料查詢失敗: ${error.message}`, 500);
+            }
+        }
+        const d6Params = parsePathParams('/api/{db}/room/{room}', path);
+        if (d6Params && method === 'GET') {
+            try {
+                if (!env.DB) {
+                    console.error('D1 資料庫未配置');
+                    return errorResponse('D1 資料庫未配置', 500);
+                }
+
+                const db = new DatabaseManager(env);
+                // 查詢 room 欄位等於指定數字的記錄
+                const result = await db.query(`SELECT * FROM ${d6Params.db} WHERE room = ?`, [parseInt(d6Params.room)]);
+
+                if (!result.results || result.results.length === 0) {
+                    return errorResponse('找不到指定的資料', 404);
+                }
+                const processedData = result.results.map(item => {
+                    const processedItem = { ...item };
+                    if (processedItem.list && typeof processedItem.list === 'string') {
+                        try {
+                            processedItem.list = JSON.parse(processedItem.list);
+                        } catch (e) {
+                            console.warn('list 欄位 JSON 解析失敗:', e);
+                        }
+                    }
+                    if (processedItem.data && typeof processedItem.data === 'string') {
+                        try {
+                            processedItem.data = JSON.parse(processedItem.data);
+                        } catch (e) {
+                            console.warn('data 欄位 JSON 解析失敗:', e);
+                        }
+                    }
+                    return processedItem;
+                });
+
+                return jsonResponse(processedData);
+            } catch (error) {
+                console.error('D1 查詢錯誤:', error);
+                return errorResponse(`資料查詢失敗: ${error.message}`, 500);
+            }
+        }
+        const d7Params = parsePathParams('/api/{db}/room/{room}/{round}', path);
+        if (d7Params && method === 'GET') {
+            try {
+                if (!env.DB) {
+                    console.error('D1 資料庫未配置');
+                    return errorResponse('D1 資料庫未配置', 500);
+                }
+
+                const db = new DatabaseManager(env);
+                // 查詢 room 和 round 欄位都等於指定值的記錄
+                const result = await db.query(`SELECT * FROM ${d7Params.db} WHERE room = ? AND round = ?`, [parseInt(d7Params.room), parseInt(d7Params.round)]);
+
+                if (!result.results || result.results.length === 0) {
+                    return errorResponse('找不到指定的資料', 404);
+                }
+                const processedData = result.results.map(item => {
+                    const processedItem = { ...item };
+                    if (processedItem.list && typeof processedItem.list === 'string') {
+                        try {
+                            processedItem.list = JSON.parse(processedItem.list);
+                        } catch (e) {
+                            console.warn('list 欄位 JSON 解析失敗:', e);
+                        }
+                    }
+                    if (processedItem.data && typeof processedItem.data === 'string') {
+                        try {
+                            processedItem.data = JSON.parse(processedItem.data);
+                        } catch (e) {
+                            console.warn('data 欄位 JSON 解析失敗:', e);
+                        }
+                    }
+                    return processedItem;
+                });
+
+                return jsonResponse(processedData[0]);
+            } catch (error) {
+                console.error('D1 查詢錯誤:', error);
+                return errorResponse(`資料查詢失敗: ${error.message}`, 500);
+            }
+        }
+        const d8Params = parsePathParams('/api/{db}/room/{room}', path);
+        if (d8Params && method === 'POST') {
+            try {
+                if (!env.DB) {
+                    console.error('D1 資料庫未配置');
+                    return errorResponse('D1 資料庫未配置', 500);
+                }
+                const body = await parseRequestBody(request);
+                if (!body || Object.keys(body).length === 0) {
+                    return errorResponse('請提供要新增的資料', 400);
+                }
+                
+                // 將 room 參數添加到請求體中
+                const processedBody = { ...body, room: parseInt(d8Params.room) };
+                
+                // 處理其他欄位的 JSON 轉換
+                if (processedBody.list && Array.isArray(processedBody.list)) {
+                    processedBody.list = JSON.stringify(processedBody.list);
+                }
+                if (processedBody.data && typeof processedBody.data === 'object') {
+                    processedBody.data = JSON.stringify(processedBody.data);
+                }
+
+                const db = new DatabaseManager(env);
+                await db.insert(d8Params.db, processedBody);
+
+                return jsonResponse({
+                    success: true,
+                    message: '資料新增成功'
+                });
+            } catch (error) {
+                console.error('D1 新增錯誤:', error);
+                return errorResponse(`資料新增失敗: ${error.message}`, 500);
+            }
+        }
+        const d9Params = parsePathParams('/api/{db}/room/{room}/{round}', path);
+        if (d9Params && method === 'DELETE') {
+            try {
+                if (!env.DB) {
+                    console.error('D1 資料庫未配置');
+                    return errorResponse('D1 資料庫未配置', 500);
+                }
+
+                const db = new DatabaseManager(env);
+                await db.delete(d9Params.db, { 
+                    room: parseInt(d9Params.room), 
+                    round: parseInt(d9Params.round) 
+                });
+
+                return jsonResponse({
+                    success: true,
+                    message: '資料刪除成功'
+                });
+            } catch (error) {
+                console.error('D1 刪除錯誤:', error);
+                return errorResponse(`資料刪除失敗: ${error.message}`, 500);
             }
         }
         if (path === '/api/db/query' && method === 'POST') {
