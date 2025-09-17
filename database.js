@@ -80,25 +80,4 @@ export class DatabaseManager {
             changes: result.meta?.changes
         };
     }
-
-    // 檢查資料表是否存在
-    async tableExists(tableName) {
-        const result = await this.query(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
-            [tableName]
-        );
-        return result.results.length > 0;
-    }
-
-    // 取得所有資料表名稱
-    async getTables() {
-        const result = await this.query("SELECT name FROM sqlite_master WHERE type='table'");
-        return result.results.map(row => row.name);
-    }
-
-    // 取得資料表結構
-    async getTableSchema(tableName) {
-        const result = await this.query(`PRAGMA table_info(${tableName})`);
-        return result.results;
-    }
 }
