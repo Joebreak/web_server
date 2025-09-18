@@ -494,6 +494,28 @@ export default {
                 return errorResponse(`資料刪除失敗: ${error.message}`, 500);
             }
         }
+        const d10Params = parsePathParams('/api/{db}/room/{room}', path);
+        if (d10Params && method === 'DELETE') {
+            try {
+                if (!env.DB) {
+                    console.error('D1 資料庫未配置');
+                    return errorResponse('D1 資料庫未配置', 500);
+                }
+
+                const db = new DatabaseManager(env);
+                await db.delete(d10Params.db, { 
+                    room: parseInt(d10Params.room), 
+                });
+
+                return jsonResponse({
+                    success: true,
+                    message: '資料刪除成功'
+                });
+            } catch (error) {
+                console.error('D1 刪除錯誤:', error);
+                return errorResponse(`資料刪除失敗: ${error.message}`, 500);
+            }
+        }
         if (path === '/api/db/query' && method === 'POST') {
             try {
                 const body = await parseRequestBody(request);
