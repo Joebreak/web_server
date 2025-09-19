@@ -4,6 +4,7 @@ compatibility_date = "2024-09-11"
 
 [dev]
 port = 9080
+ip = "0.0.0.0"
 
 # D1 資料庫配置
 [[d1_databases]]
