@@ -246,7 +246,8 @@ export default {
                 if (!body || Object.keys(body).length === 0) {
                     return errorResponse('請提供要新增的資料', 400);
                 }
-                const processedBody = { ...body };
+                const { id, ...bodyWithoutId } = body;
+                const processedBody = { ...bodyWithoutId };
                 if (processedBody.list && Array.isArray(processedBody.list)) {
                     processedBody.list = JSON.stringify(processedBody.list);
                 }
@@ -447,11 +448,9 @@ export default {
                 if (!body || Object.keys(body).length === 0) {
                     return errorResponse('請提供要新增的資料', 400);
                 }
+                const { id, ...bodyWithoutId } = body;
+                const processedBody = { ...bodyWithoutId, room: parseInt(d8Params.room) };
                 
-                // 將 room 參數添加到請求體中
-                const processedBody = { ...body, room: parseInt(d8Params.room) };
-                
-                // 處理其他欄位的 JSON 轉換
                 if (processedBody.list && Array.isArray(processedBody.list)) {
                     processedBody.list = JSON.stringify(processedBody.list);
                 }
