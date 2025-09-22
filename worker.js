@@ -308,7 +308,7 @@ export default {
 
                 const db = new DatabaseManager(env);
                 // 查詢 room 和 round 欄位都等於指定值的記錄
-                const result = await db.query(`SELECT * FROM ${d7Params.db} WHERE room = ? AND round = ?`, [parseInt(d4Params.room), parseInt(d4Params.round)]);
+                const result = await db.query(`SELECT * FROM ${d4Params.db} WHERE room = ? AND round = ?`, [parseInt(d4Params.room), parseInt(d4Params.round)]);
 
                 if (!result.results || result.results.length === 0) {
                     return errorResponse('找不到指定的資料', 404);
@@ -360,7 +360,7 @@ export default {
                 }
 
                 const db = new DatabaseManager(env);
-                await db.insert(d8Params.db, processedBody);
+                await db.insert(d5Params.db, processedBody);
 
                 return jsonResponse({
                     success: true,
