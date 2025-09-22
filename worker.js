@@ -235,71 +235,8 @@ export default {
                 return errorResponse(`資料庫查詢失敗: ${error.message}`, 500);
             }
         }
-        const d4Params = parsePathParams('/api/{db}', path);
-        if (d4Params && method === 'POST') {
-            try {
-                if (!env.DB) {
-                    console.error('D1 資料庫未配置');
-                    return errorResponse('D1 資料庫未配置', 500);
-                }
-                const body = await parseRequestBody(request);
-                if (!body || Object.keys(body).length === 0) {
-                    return errorResponse('請提供要新增的資料', 400);
-                }
-                const { id, ...bodyWithoutId } = body;
-                const processedBody = { ...bodyWithoutId };
-                if (processedBody.list && Array.isArray(processedBody.list)) {
-                    processedBody.list = JSON.stringify(processedBody.list);
-                }
-                if (processedBody.data && typeof processedBody.data === 'object') {
-                    processedBody.data = JSON.stringify(processedBody.data);
-                }
-
-                const db = new DatabaseManager(env);
-                await db.insert(d4Params.db, processedBody);
-
-                return jsonResponse({
-                    success: true,
-                    message: '資料新增成功'
-                });
-            } catch (error) {
-                console.error('D1 新增錯誤:', error);
-                return errorResponse(`資料新增失敗: ${error.message}`, 500);
-            }
-        }
-        const d2Params = parsePathParams('/api/{db}/{id}', path);
-        if (d2Params && method === 'PUT') {
-            try {
-                if (!env.DB) {
-                    console.error('D1 資料庫未配置');
-                    return errorResponse('D1 資料庫未配置', 500);
-                }
-
-                const body = await parseRequestBody(request);
-                if (!body || Object.keys(body).length === 0) {
-                    return errorResponse('請提供要更新的資料', 400);
-                }
-                const processedBody = { ...body };
-                if (processedBody.list && Array.isArray(processedBody.list)) {
-                    processedBody.list = JSON.stringify(processedBody.list);
-                }
-                if (processedBody.data && typeof processedBody.data === 'object') {
-                    processedBody.data = JSON.stringify(processedBody.data);
-                }
-
-                const db = new DatabaseManager(env);
-                await db.update(d2Params.db, processedBody, { id: parseInt(d2Params.id) });
-                return jsonResponse({
-                    success: true,
-                    message: '資料更新成功'
-                });
-            } catch (error) {
-                console.error('D1 更新錯誤:', error);
-                return errorResponse(`資料更新失敗: ${error.message}`, 500);
-            }
-        }
-        const d3Params = parsePathParams('/api/{db}/{id}', path);
-        if (d3Params && method === 'DELETE') {
+        const d2Params = parsePathParams('/api/{db}/all_room', path);
+        if (d2Params && method === 'GET') {
             try {
                 if (!env.DB) {
                     console.error('D1 資料庫未配置');
@@ -307,58 +244,22 @@ export default {
                 }
 
                 const db = new DatabaseManager(env);
-                await db.delete(d3Params.db, { id: parseInt(d3Params.id) });
+                // 查詢所有 round = 0 的記錄，只選擇 id 和 room 欄位
+                const result = await db.query(`SELECT id, room FROM ${d2Params.db} WHERE round = 0`);
 
-                return jsonResponse({
-                    success: true,
-                    message: '資料刪除成功',
-                });
-            } catch (error) {
-                console.error('D1 刪除錯誤:', error);
-                return errorResponse(`資料刪除失敗: ${error.message}`, 500);
-            }
-        }
-        const d5Params = parsePathParams('/api/{db}/{id}', path);
-        if (d5Params && method === 'GET') {
-            try {
-                if (!env.DB) {
-                    console.error('D1 資料庫未配置');
-                    return errorResponse('D1 資料庫未配置', 500);
-                }
-
-                const db = new DatabaseManager(env);
-                const result = await db.query(`SELECT * FROM ${d5Params.db} WHERE id = ?`, [parseInt(d5Params.id)]);
-
+                // 如果沒有找到記錄，回傳空陣列
                 if (!result.results || result.results.length === 0) {
-                    return errorResponse('找不到指定的資料', 404);
+                    return jsonResponse([]);
                 }
-                const processedData = result.results.map(item => {
-                    const processedItem = { ...item };
-                    if (processedItem.list && typeof processedItem.list === 'string') {
-                        try {
-                            processedItem.list = JSON.parse(processedItem.list);
-                        } catch (e) {
-                            console.warn('list 欄位 JSON 解析失敗:', e);
-                        }
-                    }
-                    if (processedItem.data && typeof processedItem.data === 'string') {
-                        try {
-                            processedItem.data = JSON.parse(processedItem.data);
-                        } catch (e) {
-                            console.warn('data 欄位 JSON 解析失敗:', e);
-                        }
-                    }
-                    return processedItem;
-                });
 
-                return jsonResponse(processedData[0]);
+                return jsonResponse(result.results);
             } catch (error) {
                 console.error('D1 查詢錯誤:', error);
                 return errorResponse(`資料查詢失敗: ${error.message}`, 500);
             }
         }
-        const d6Params = parsePathParams('/api/{db}/room/{room}', path);
-        if (d6Params && method === 'GET') {
+        const d3Params = parsePathParams('/api/{db}/room/{room}', path);
+        if (d3Params && method === 'GET') {
             try {
                 if (!env.DB) {
                     console.error('D1 資料庫未配置');
@@ -367,7 +268,7 @@ export default {
 
                 const db = new DatabaseManager(env);
                 // 查詢 room 欄位等於指定數字的記錄
-                const result = await db.query(`SELECT * FROM ${d6Params.db} WHERE room = ?`, [parseInt(d6Params.room)]);
+                const result = await db.query(`SELECT * FROM ${d3Params.db} WHERE room = ?`, [parseInt(d3Params.room)]);
 
                 if (!result.results || result.results.length === 0) {
                     return errorResponse('找不到指定的資料', 404);
@@ -397,8 +298,8 @@ export default {
                 return errorResponse(`資料查詢失敗: ${error.message}`, 500);
             }
         }
-        const d7Params = parsePathParams('/api/{db}/room/{room}/{round}', path);
-        if (d7Params && method === 'GET') {
+        const d4Params = parsePathParams('/api/{db}/room/{room}/{round}', path);
+        if (d4Params && method === 'GET') {
             try {
                 if (!env.DB) {
                     console.error('D1 資料庫未配置');
@@ -407,7 +308,7 @@ export default {
 
                 const db = new DatabaseManager(env);
                 // 查詢 room 和 round 欄位都等於指定值的記錄
-                const result = await db.query(`SELECT * FROM ${d7Params.db} WHERE room = ? AND round = ?`, [parseInt(d7Params.room), parseInt(d7Params.round)]);
+                const result = await db.query(`SELECT * FROM ${d7Params.db} WHERE room = ? AND round = ?`, [parseInt(d4Params.room), parseInt(d4Params.round)]);
 
                 if (!result.results || result.results.length === 0) {
                     return errorResponse('找不到指定的資料', 404);
@@ -437,8 +338,8 @@ export default {
                 return errorResponse(`資料查詢失敗: ${error.message}`, 500);
             }
         }
-        const d8Params = parsePathParams('/api/{db}/room/{room}', path);
-        if (d8Params && method === 'POST') {
+        const d5Params = parsePathParams('/api/{db}/room/{room}', path);
+        if (d5Params && method === 'POST') {
             try {
                 if (!env.DB) {
                     console.error('D1 資料庫未配置');
@@ -449,7 +350,7 @@ export default {
                     return errorResponse('請提供要新增的資料', 400);
                 }
                 const { id, ...bodyWithoutId } = body;
-                const processedBody = { ...bodyWithoutId, room: parseInt(d8Params.room) };
+                const processedBody = { ...bodyWithoutId, room: parseInt(d5Params.room) };
                 
                 if (processedBody.list && Array.isArray(processedBody.list)) {
                     processedBody.list = JSON.stringify(processedBody.list);
@@ -470,8 +371,8 @@ export default {
                 return errorResponse(`資料新增失敗: ${error.message}`, 500);
             }
         }
-        const d9Params = parsePathParams('/api/{db}/room/{room}/{round}', path);
-        if (d9Params && method === 'DELETE') {
+        const d6Params = parsePathParams('/api/{db}/room/{room}/{round}', path);
+        if (d6Params && method === 'DELETE') {
             try {
                 if (!env.DB) {
                     console.error('D1 資料庫未配置');
@@ -479,9 +380,9 @@ export default {
                 }
 
                 const db = new DatabaseManager(env);
-                await db.delete(d9Params.db, { 
-                    room: parseInt(d9Params.room), 
-                    round: parseInt(d9Params.round) 
+                await db.delete(d6Params.db, { 
+                    room: parseInt(d6Params.room), 
+                    round: parseInt(d6Params.round) 
                 });
 
                 return jsonResponse({
@@ -493,8 +394,8 @@ export default {
                 return errorResponse(`資料刪除失敗: ${error.message}`, 500);
             }
         }
-        const d10Params = parsePathParams('/api/{db}/room/{room}', path);
-        if (d10Params && method === 'DELETE') {
+        const d7Params = parsePathParams('/api/{db}/room/{room}', path);
+        if (d7Params && method === 'DELETE') {
             try {
                 if (!env.DB) {
                     console.error('D1 資料庫未配置');
@@ -502,8 +403,8 @@ export default {
                 }
 
                 const db = new DatabaseManager(env);
-                await db.delete(d10Params.db, { 
-                    room: parseInt(d10Params.room), 
+                await db.delete(d7Params.db, { 
+                    room: parseInt(d7Params.room), 
                 });
 
                 return jsonResponse({
