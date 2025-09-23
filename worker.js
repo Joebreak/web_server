@@ -244,8 +244,8 @@ export default {
                 }
 
                 const db = new DatabaseManager(env);
-                // 查詢所有 round = 0 的記錄，只選擇 id 和 room 欄位
-                const result = await db.query(`SELECT id, room FROM ${d2Params.db} WHERE round = 0`);
+                // 查詢所有 round = 0 的記錄，選擇 id、room 和 type 欄位
+                const result = await db.query(`SELECT id, room, type FROM ${d2Params.db} WHERE round = 0`);
 
                 // 如果沒有找到記錄，回傳空陣列
                 if (!result.results || result.results.length === 0) {
