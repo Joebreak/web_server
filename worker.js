@@ -351,7 +351,7 @@ export default {
                 }
                 const { id, ...bodyWithoutId } = body;
                 const processedBody = { ...bodyWithoutId, room: parseInt(d5Params.room) };
-                
+
                 if (processedBody.list && Array.isArray(processedBody.list)) {
                     processedBody.list = JSON.stringify(processedBody.list);
                 }
@@ -369,29 +369,6 @@ export default {
             } catch (error) {
                 console.error('D1 新增錯誤:', error);
                 return errorResponse(`資料新增失敗: ${error.message}`, 500);
-            }
-        }
-        const d6Params = parsePathParams('/api/{db}/room/{room}/{round}', path);
-        if (d6Params && method === 'DELETE') {
-            try {
-                if (!env.DB) {
-                    console.error('D1 資料庫未配置');
-                    return errorResponse('D1 資料庫未配置', 500);
-                }
-
-                const db = new DatabaseManager(env);
-                await db.delete(d6Params.db, {
-                    room: parseInt(d6Params.room),
-                    round: parseInt(d6Params.round)
-                });
-
-                return jsonResponse({
-                    success: true,
-                    message: '資料刪除成功'
-                });
-            } catch (error) {
-                console.error('D1 刪除錯誤:', error);
-                return errorResponse(`資料刪除失敗: ${error.message}`, 500);
             }
         }
         // 刪除指定 room 下除了 round = 0 以外的所有資料
@@ -412,6 +389,29 @@ export default {
                 return jsonResponse({
                     success: true,
                     message: '資料刪除成功 (保留 round = 0)'
+                });
+            } catch (error) {
+                console.error('D1 刪除錯誤:', error);
+                return errorResponse(`資料刪除失敗: ${error.message}`, 500);
+            }
+        }
+        const d6Params = parsePathParams('/api/{db}/room/{room}/{round}', path);
+        if (d6Params && method === 'DELETE') {
+            try {
+                if (!env.DB) {
+                    console.error('D1 資料庫未配置');
+                    return errorResponse('D1 資料庫未配置', 500);
+                }
+
+                const db = new DatabaseManager(env);
+                await db.delete(d6Params.db, {
+                    room: parseInt(d6Params.room),
+                    round: parseInt(d6Params.round)
+                });
+
+                return jsonResponse({
+                    success: true,
+                    message: '資料刪除成功'
                 });
             } catch (error) {
                 console.error('D1 刪除錯誤:', error);
